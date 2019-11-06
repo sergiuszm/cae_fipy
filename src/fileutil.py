@@ -43,6 +43,16 @@ def mkdirs(path, wdt=None):
 
     return created
 
+def rmtree(directory):
+    for entry in os.ilistdir(directory):
+        is_dir = entry[1] == 0x4000
+        if is_dir:
+            rmtree(directory + '/' + entry[0])
+
+        else:
+            os.remove(directory + '/' + entry[0])
+    os.rmdir(directory)
+
 def rm_recursive(path, wdt=None):
     try:
         # Try as normal file

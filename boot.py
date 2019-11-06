@@ -31,7 +31,8 @@ def boot():
     # boot_nr = 1: check for update and if there is one available prepare to download it next time
     # boot_nr = 2: if there is scheduled update then it will be downloaded and installed
     if boot_nr < 3:
-        Thread(sleep_for_seconds_after_seconds, for_seconds = 1).start()
+        # we are giving it 120s to update
+        Thread(sleep_for_seconds_after_seconds, after_seconds = 120, for_seconds = 1).start()
         try:
             connect_and_get_update()
         except Exception as e:
