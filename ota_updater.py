@@ -36,9 +36,6 @@ class OTAUpdater:
     def check_for_update_to_install_during_next_reboot(self):
         current_version, latest_version = self.check_for_updates()
 
-        _logger.info('Checking version... ')
-        _logger.info('\tCurrent version: %s', current_version)
-        _logger.info('\tLatest version: %s', latest_version)
         if latest_version > current_version:
             _logger.info('New version available, will download and install on next reboot')
             os.mkdir(self.modulepath('next'))

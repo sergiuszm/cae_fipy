@@ -42,11 +42,10 @@ def boot():
         reset()
 
     # Normal stage of execution
-    Thread(sleep_for_seconds_after_seconds, for_seconds = 1, after_seconds = 10).start()
+    Thread(sleep_for_seconds_after_seconds, for_seconds = 1, after_seconds = 60).start()
     print('Normal stage of execution')
-    disable_radios()
-        # from src.main import main
-        # main()
+    from src.main import main
+    main()
 
 def connect_and_get_update():
     radios = [WLAN.getInstance(), LTE.getInstance()]

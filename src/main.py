@@ -1,23 +1,34 @@
 # main.py -- put your code here!
 
 import time
-from machine import UART, Pin
+from machine import UART, Pin, deepsleep
 from src.commands import Commands
 from src.thread import Thread
 import pycom
 from src.nbiotpy import NbIoT
 from src.setup import mosfet_sensors, init_hw
-from src.ota_updater import OTAUpdater
+import src.logging as logging
+
+_logger = logging.getLogger("main")
 
 def main():
-    print('START!')
+    _logger.info('Starting main()')
     
+    _logger.info('!!!!Some special line to check if update works!!!!')
+
+    _logger.info('Mosfet ON')
     mosfet_sensors(True)
+    _logger.info('Init HW')
     init_hw()
 
-    # from src.sensors import read_temp
-    # read_temp()    
+    from src.sensors import read_temp
+    _logger.info('Read temperature')
+    read_temp()    
 
+    _logger.info('Mosfet off')
+    mosfet_sensors(False)
+    _logger.info('Going into sleep...')
+    deepsleep(1 * 1000)
     # from src.comm import LTE
     # lte = LTE()
     # lte.connect()
@@ -33,9 +44,9 @@ def main():
     # sd.deinit()
     # mosfet_sensors(False)
 
-    from src.comm import WLAN
-    wlan = WLAN()
-    wlan.connect()
+    # from src.comm import WLAN
+    # wlan = WLAN()
+    # wlan.connect()
     # token='ceab660119b1b41a87055d1b2eb9715c946a00b3'
     # updater = OTAUpdater('https://github.com/sergiuszm/cae_fipy', headers={'Authorization': 'token {}'.format(token)})
     # _, latest_version = updater.check_for_updates()
