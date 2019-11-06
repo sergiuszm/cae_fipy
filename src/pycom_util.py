@@ -47,6 +47,22 @@ def mk_on_boot_fn(key, default=None):
     return on_boot_fn
 
 
+# def update_lte():
+#     from machine import SD
+#     sd = SD()
+#     os.mount(sd, '/sd')    # mount it
+#     os.listdir('/sd')      # list its content
+
+#     import sqnsupgrade
+#     # sqnsupgrade.run('/sd/CATM1-41065/upgdiff_33080-to-41065.dup', '/sd/CATM1-41065/updater.elf')
+#     sqnsupgrade.run('/sd/CATM1-41065/CATM1-41065.dup', '/sd/CATM1-41065/updater.elf')
+
+
+# def get_lte_version():
+#     import sqnsupgrade
+#     print(sqnsupgrade.info())
+
+
 class SpiWrapper(machine.SPI):
     """
     Wrap the SPI driver for compatibility with the SDCard driver

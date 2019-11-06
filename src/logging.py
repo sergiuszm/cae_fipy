@@ -40,10 +40,10 @@ class Logger:
         self.to_file = to_file
         self.path = '/flash/log/{}-{}.txt'.format(name, date)
 
-        if to_file:
-            f = open(self.path, 'a')
-            f.write('\nLogger:{} started at {}\n'.format(name, format_time(tt)))
-            f.close()
+        # if to_file:
+        #     f = open(self.path, 'a')
+        #     f.write('\nLogger:{} started at {}\n'.format(name, format_time(tt)))
+        #     f.close()
     
     def _level_str(self, level):
         l = _level_dict.get(level)
@@ -59,19 +59,19 @@ class Logger:
 
     def log(self, level, msg, *args):
         if level >= (self.level or _level):
-            if self.to_file: f = open(self.path, 'a')
+            # if self.to_file: f = open(self.path, 'a')
             _stream.write("%s:%s:" % (self._level_str(level), self.name))
-            if self.to_file: f.write("%s:%s:" % (self._level_str(level), self.name))
+            # if self.to_file: f.write("%s:%s:" % (self._level_str(level), self.name))
             if not args:
                 print(msg, file=_stream)
-                if self.to_file: f.write(msg)
+                # if self.to_file: f.write(msg)
             else:
                 print(msg % args, file=_stream)
-                if self.to_file: f.write(msg % args)
+                # if self.to_file: f.write(msg % args)
             
-            if self.to_file: 
-                f.write('\n')
-                f.close()
+            # if self.to_file: 
+            #     f.write('\n')
+            #     f.close()
 
     def debug(self, msg, *args):
         self.log(DEBUG, msg, *args)

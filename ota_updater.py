@@ -5,92 +5,56 @@ import usocket
 import os
 import gc
 import machine
+import src.logging as logging
 
+_logger = logging.getLogger("ota_updater")
 
 class OTAUpdater:
 
-    def __init__(self, github_repo, module='', main_dir='src'):
-        self.http_client = HttpClient()
+    def __init__(self, github_repo, module='', main_dir='src', headers={}):
+        self.http_client = HttpClient(headers=headers)
         self.github_repo = github_repo.rstrip('/').replace('https://github.com', 'https://api.github.com/repos')
         self.main_dir = main_dir
         self.module = module.rstrip('/')
 
-    @staticmethod
-    def using_network(ssid, password):
-        import network
-        sta_if = network.WLAN(network.STA_IF)
-        if not sta_if.isconnected():
-            print('connecting to network...')
-            sta_if.active(True)
-            sta_if.connect(ssid, password)
-            while not sta_if.isconnected():
-                pass
-        print('network config:', sta_if.ifconfig())
+    def download_and_install_update_if_available(self):
+        def _download_and_install(latest_version):
+            self.download_all_files(self.github_repo + '/contents/' + self.main_dir, latest_version)
+            self.rmtree(self.modulepath(self.main_dir))
+            os.rename(self.modulepath('next/.version_on_reboot'), self.modulepath('next/.version'))
+            os.rename(self.modulepath('next'), self.modulepath(self.main_dir))
+            _logger.info('Update installed (%s), will reboot now', latest_version)
+
+        if 'next' in os.listdir(self.module):
+            if '.version_on_reboot' in os.listdir(self.modulepath('next')):
+                latest_version = self.get_version(self.modulepath('next'), '.version_on_reboot')
+                _logger.info('New update found: %s', latest_version)
+                _download_and_install(latest_version)
+        else:
+            self.check_for_update_to_install_during_next_reboot()
 
     def check_for_update_to_install_during_next_reboot(self):
-        current_version = self.get_version(self.modulepath(self.main_dir))
-        latest_version = self.get_latest_version()
+        current_version, latest_version = self.check_for_updates()
 
-        print('Checking version... ')
-        print('\tCurrent version: ', current_version)
-        print('\tLatest version: ', latest_version)
+        _logger.info('Checking version... ')
+        _logger.info('\tCurrent version: %s', current_version)
+        _logger.info('\tLatest version: %s', latest_version)
         if latest_version > current_version:
-            print('New version available, will download and install on next reboot')
+            _logger.info('New version available, will download and install on next reboot')
             os.mkdir(self.modulepath('next'))
             with open(self.modulepath('next/.version_on_reboot'), 'w') as versionfile:
                 versionfile.write(latest_version)
                 versionfile.close()
 
-    def download_and_install_update_if_available(self, ssid, password):
-        if 'next' in os.listdir(self.module):
-            if '.version_on_reboot' in os.listdir(self.modulepath('next')):
-                latest_version = self.get_version(self.modulepath('next'), '.version_on_reboot')
-                print('New update found: ', latest_version)
-                self._download_and_install_update(latest_version, ssid, password)
-        else:
-            print('No new updates found...')
-
-    def _download_and_install_update(self, latest_version, ssid, password):
-        OTAUpdater.using_network(ssid, password)
-
-        self.download_all_files(self.github_repo + '/contents/' + self.main_dir, latest_version)
-        self.rmtree(self.modulepath(self.main_dir))
-        os.rename(self.modulepath('next/.version_on_reboot'), self.modulepath('next/.version'))
-        os.rename(self.modulepath('next'), self.modulepath(self.main_dir))
-        print('Update installed (', latest_version, '), will reboot now')
-        machine.reset()
-
-    def apply_pending_updates_if_available(self):
-        if 'next' in os.listdir(self.module):
-            if '.version' in os.listdir(self.modulepath('next')):
-                pending_update_version = self.get_version(self.modulepath('next'))
-                print('Pending update found: ', pending_update_version)
-                self.rmtree(self.modulepath(self.main_dir))
-                os.rename(self.modulepath('next'), self.modulepath(self.main_dir))
-                print('Update applied (', pending_update_version, '), ready to rock and roll')
-            else:
-                print('Corrupt pending update found, discarding...')
-                self.rmtree(self.modulepath('next'))
-        else:
-            print('No pending update found')
-
-    def download_updates_if_available(self):
+    def check_for_updates(self):
         current_version = self.get_version(self.modulepath(self.main_dir))
         latest_version = self.get_latest_version()
 
-        print('Checking version... ')
-        print('\tCurrent version: ', current_version)
-        print('\tLatest version: ', latest_version)
-        if latest_version > current_version:
-            print('Updating...')
-            os.mkdir(self.modulepath('next'))
-            self.download_all_files(self.github_repo + '/contents/' + self.main_dir, latest_version)
-            with open(self.modulepath('next/.version'), 'w') as versionfile:
-                versionfile.write(latest_version)
-                versionfile.close()
+        _logger.info('Checking version... ')
+        _logger.info('\tCurrent version: %s', current_version)
+        _logger.info('\tLatest version: %s', latest_version)
 
-            return True
-        return False
+        return current_version, latest_version
 
     def rmtree(self, directory):
         for entry in os.ilistdir(directory):
@@ -112,8 +76,15 @@ class OTAUpdater:
 
     def get_latest_version(self):
         latest_release = self.http_client.get(self.github_repo + '/releases/latest')
-        version = latest_release.json()['tag_name']
-        latest_release.close()
+        try:
+            version = latest_release.json()['tag_name']
+            latest_release.close()        
+        except KeyError as e:
+            msg = 'Could not check for updates. Reason: %s' % e
+            _logger.error(msg)
+            latest_release.close()
+            raise OTAUpdaterException(msg)
+        
         return version
 
     def download_all_files(self, root_url, version):
@@ -131,7 +102,7 @@ class OTAUpdater:
         file_list.close()
 
     def download_file(self, url, path):
-        print('\tDownloading: ', path)
+        _logger.info('\tDownloading: %s', path)
         with open(path, 'w') as outfile:
             try:
                 response = self.http_client.get(url)
@@ -143,6 +114,47 @@ class OTAUpdater:
 
     def modulepath(self, path):
         return self.module + '/' + path if self.module else path
+
+    # def download_update(self, latest_version):
+    #     if 'next' in os.listdir(self.module):
+    #         if '.version_on_reboot' in os.listdir(self.modulepath('next')):
+    #             latest_version = self.get_version(self.modulepath('next'), '.version_on_reboot')
+    #             _logger.info('New update found: %s', latest_version)
+    #             self.download_all_files(self.github_repo + '/contents/' + self.main_dir, latest_version)
+
+    # def apply_pending_updates_if_available(self):
+    #     if 'next' in os.listdir(self.module):
+    #         if '.version' in os.listdir(self.modulepath('next')):
+    #             pending_update_version = self.get_version(self.modulepath('next'))
+    #             _logger.info('Pending update found: %s', pending_update_version)
+    #             self.rmtree(self.modulepath(self.main_dir))
+    #             os.rename(self.modulepath('next'), self.modulepath(self.main_dir))
+    #             _logger.info('Update applied (%s), ready to rock and roll', pending_update_version)
+    #         else:
+    #             _logger.info('Corrupt pending update found, discarding...')
+    #             self.rmtree(self.modulepath('next'))
+    #     else:
+    #         _logger.info('No pending update found')
+
+
+
+    # def download_updates_if_available(self):
+    #     current_version, latest_version = self.check_for_updates()
+
+    #     if latest_version > current_version:
+    #         _logger.info('Updating...')
+    #         os.mkdir(self.modulepath('next'))
+    #         self.download_all_files(self.github_repo + '/contents/' + self.main_dir, latest_version)
+    #         with open(self.modulepath('next/.version'), 'w') as versionfile:
+    #             versionfile.write(latest_version)
+    #             versionfile.close()
+
+    #         return True
+    #     return False
+
+
+class OTAUpdaterException(Exception):
+    pass
 
 
 class Response:
@@ -179,7 +191,14 @@ class Response:
 
 class HttpClient:
 
+    def __init__(self, headers={}):
+        self._headers = headers
+
     def request(self, method, url, data=None, json=None, headers={}, stream=None):
+        def _write_headers(sock, _headers):
+            for k in _headers:
+                sock.write(b'{}: {}\r\n'.format(k, _headers[k]))
+
         try:
             proto, dummy, host, path = url.split('/', 3)
         except ValueError:
@@ -209,11 +228,9 @@ class HttpClient:
             if not 'Host' in headers:
                 s.write(b'Host: %s\r\n' % host)
             # Iterate over keys to avoid tuple alloc
-            for k in headers:
-                s.write(k)
-                s.write(b': ')
-                s.write(headers[k])
-                s.write(b'\r\n')
+            _write_headers(s, self._headers)
+            _write_headers(s, headers)
+
             # add user agent
             s.write('User-Agent')
             s.write(b': ')

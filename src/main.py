@@ -6,91 +6,41 @@ from src.commands import Commands
 from src.thread import Thread
 import pycom
 from src.nbiotpy import NbIoT
-
-
-def detect_beacon():
-    from network import Bluetooth
-    import ubinascii
-
-    bt = Bluetooth()
-    bt.start_scan(-1)
-
-    def get_adv():
-        while True:
-            adv = bt.get_adv()
-
-            if adv:
-                
-                name = bt.resolve_adv_data(adv.data, Bluetooth.ADV_NAME_CMPL)
-                # if name not in ['Holy', 'Fipy']:
-                if name is None:
-                    continue
-                
-                # pycom.rgbled(0xff00)
-                # time.sleep(1)
-                # pycom.rgbled(0x0000)
-                # try to get the complete name
-                print('########################################')
-                print("NAME: [{}] {}".format(adv.rssi, name))
-                print("MAC: {}".format(ubinascii.hexlify(adv.mac).decode('utf-8')))
-                mfg_data = bt.resolve_adv_data(adv.data, Bluetooth.ADV_MANUFACTURER_DATA)
-
-                if mfg_data:
-                    mfg_data = ubinascii.hexlify(mfg_data).decode('utf-8')
-                    # try to get the manufacturer data (Apple's iBeacon data is sent here)
-                    print("MFG DATA: %s" % (mfg_data))
-
-                print("DATA: {}".format(ubinascii.hexlify(adv.data).decode('utf-8')))
-
-                print('#############----------#################')
-
-            time.sleep(1)
-
-    Thread(get_adv).start()
-
-# def update_lte():
-#     from machine import SD
-#     sd = SD()
-#     os.mount(sd, '/sd')    # mount it
-#     os.listdir('/sd')      # list its content
-
-#     import sqnsupgrade
-#     # sqnsupgrade.run('/sd/CATM1-41065/upgdiff_33080-to-41065.dup', '/sd/CATM1-41065/updater.elf')
-#     sqnsupgrade.run('/sd/CATM1-41065/CATM1-41065.dup', '/sd/CATM1-41065/updater.elf')
-
-
-# def get_lte_version():
-#     import sqnsupgrade
-#     print(sqnsupgrade.info())
-
+from src.setup import mosfet_sensors, init_hw
+from src.ota_updater import OTAUpdater
 
 def main():
     print('START!')
-    from src.setup import mosfet_sensors, init_hw
+    
     mosfet_sensors(True)
     init_hw()
 
-    from src.sensors import read_temp
-    read_temp()    
+    # from src.sensors import read_temp
+    # read_temp()    
 
-    from src.comm import LTE
-    lte = LTE()
-    lte.connect()
+    # from src.comm import LTE
+    # lte = LTE()
+    # lte.connect()
 
-    from src.comm import NBT
-    nbiot = NBT()
-    nbiot.connect()
-    nbiot.get_id()
+    # from src.comm import NBT
+    # nbiot = NBT()
+    # nbiot.connect()
+    # nbiot.get_id()
 
-    from src.storage import uSD
-    sd = uSD()
-    print(sd.list_files())
-    sd.deinit()
-    mosfet_sensors(False)
+    # from src.storage import uSD
+    # sd = uSD()
+    # print(sd.list_files())
+    # sd.deinit()
+    # mosfet_sensors(False)
 
-    # from comm import WLAN
-    # wlan = WLAN()
-    # wlan.connect()
+    from src.comm import WLAN
+    wlan = WLAN()
+    wlan.connect()
+    # token='ceab660119b1b41a87055d1b2eb9715c946a00b3'
+    # updater = OTAUpdater('https://github.com/sergiuszm/cae_fipy', headers={'Authorization': 'token {}'.format(token)})
+    # _, latest_version = updater.check_for_updates()
+    # updater.check_for_update_to_install_during_next_reboot()
+    # updater.download_update(latest_version)
     # Thread(wlan.connect).start()
     
     # from comm import LTE

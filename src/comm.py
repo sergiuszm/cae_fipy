@@ -2,6 +2,7 @@ import src.logging as logging
 from machine import Timer, Pin
 import network
 import time
+import ubinascii
 from src.nbiotpy import NbIoT
 
 _logger = logging.getLogger("comm")
@@ -29,9 +30,14 @@ class TimedStep(object):
 
 
 class NBT:
-
+    __instance = None
 
     def __init__(self, mosfet='P8', pins=('P3', 'P16'), debug=False):
+        """ Virtually private constructor. """
+        if NBT.__instance != None:
+            return
+        else:
+            NBT.__instance = self
 
         self._mosfet = Pin(mosfet, mode=Pin.OUT)
         self._mosfet(True)
@@ -39,6 +45,13 @@ class NBT:
         self._nb = None
         self._sql = None
         self.__debug = debug
+
+    @staticmethod
+    def was_created():
+        """ Static access method. """
+        if NBT.__instance == None:
+            return False
+        return True
 
     def connect(self):
         self._nb = NbIoT(pins=self._pins, debug=self.__debug)
@@ -55,6 +68,7 @@ class NBT:
         self._nb = None
         self._sql = None
         self._mosfet(False)
+        NBT.__instance = None
 
     def get_id(self):
         if self._nb is None:
@@ -66,9 +80,23 @@ class NBT:
 
 
 class LTE:
+    __instance = None
+
     def __init__(self):
+        """ Virtually private constructor. """
+        if LTE.__instance != None:
+            raise Exception('Call getInstance()')
+        else:
+            LTE.__instance = self
+
         self._lte = None
         self._sql = None
+
+    @staticmethod
+    def getInstance():
+        if LTE.__instance == None:
+            LTE()
+        return LTE.__instance
 
     def connect(self):
         tschrono = Timer.Chrono()
@@ -110,8 +138,9 @@ class LTE:
 
     def deinit(self):
         self._sql = None
+
         if self._lte is None:
-            return
+            self._lte = network.LTE()
 
         try:
             if self._lte.isconnected():
@@ -125,6 +154,9 @@ class LTE:
         finally:
             with TimedStep("LTE deinit"):
                 self._lte.deinit()
+
+        self._lte = None
+        LTE.__instance = None
 
     def get_signal_strength(self):
         output = self._lte.send_at_cmd("AT+CSQ")
@@ -144,10 +176,24 @@ class LTE:
 
 
 class WLAN:
+    __instance = None
+
     def __init__(self):
+        """ Virtually private constructor. """
+        if WLAN.__instance != None:
+            raise Exception('Call getInstance()!')
+        else:
+            WLAN.__instance = self
+
         self._ssid = None
         self._sql = None
         self._wlan = None
+
+    @staticmethod
+    def getInstance():
+        if WLAN.__instance == None:
+            WLAN()
+        return WLAN.__instance
 
     def connect(self):
         tschrono = Timer.Chrono()
@@ -174,9 +220,51 @@ class WLAN:
 
 
     def deinit(self):
+        self._ssid = None
+        self._sql = None
+
         if self._wlan is not None:
             with TimedStep("WLAN deinit"):
                 self._wlan.deinit()
         
-        self._ssid = None
-        self._sql = None
+        WLAN.__instance = None
+
+
+class BLE:
+    def __init__(self):
+        self._bt = network.Bluetooth()
+
+    def detect_beacon(self):
+        self._bt.start_scan(-1)
+
+        def get_adv():
+            while True:
+                adv = self._bt.get_adv()
+
+                if adv:
+                    name = self._bt.resolve_adv_data(adv.data, Bluetooth.ADV_NAME_CMPL)
+                    # if name not in ['Holy', 'Fipy']:
+                    if name is None:
+                        continue
+                    
+                    # pycom.rgbled(0xff00)
+                    # time.sleep(1)
+                    # pycom.rgbled(0x0000)
+                    # try to get the complete name
+                    print('########################################')
+                    print("NAME: [{}] {}".format(adv.rssi, name))
+                    print("MAC: {}".format(ubinascii.hexlify(adv.mac).decode('utf-8')))
+                    mfg_data = self._bt.resolve_adv_data(adv.data, network.Bluetooth.ADV_MANUFACTURER_DATA)
+
+                    if mfg_data:
+                        mfg_data = ubinascii.hexlify(mfg_data).decode('utf-8')
+                        # try to get the manufacturer data (Apple's iBeacon data is sent here)
+                        print("MFG DATA: %s" % (mfg_data))
+
+                    print("DATA: {}".format(ubinascii.hexlify(adv.data).decode('utf-8')))
+
+                    print('#############----------#################')
+
+                time.sleep(1)
+
+        # Thread(get_adv).start()

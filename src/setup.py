@@ -1,6 +1,6 @@
 import src.logging as logging
 
-_logger = logging.getLogger("setup", to_file=False)
+_logger = logging.getLogger("setup")
 
 def init_hw():
     _logger.info('HW setup started')
