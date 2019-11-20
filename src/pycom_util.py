@@ -46,7 +46,6 @@ def mk_on_boot_fn(key, default=None):
 
     return on_boot_fn
 
-
 # def update_lte():
 #     from machine import SD
 #     sd = SD()

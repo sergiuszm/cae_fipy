@@ -1,4 +1,8 @@
 import src.logging as logging
+from src.comm import WLAN, LTE
+import network
+from src.globals import *
+from src.timeutil import TimedStep
 
 _logger = logging.getLogger("setup")
 
@@ -9,8 +13,22 @@ def init_hw():
 
 def mosfet_sensors(state):
     from machine import Pin
+    from time import sleep
     mosfet = Pin('P4', mode=Pin.OUT)
     mosfet(state)
+    mosfet.hold(True)
+
+    pins = ['P3', 'P9', 'P10', 'P22', 'P21']
+    for pin in pins:
+        if state is False:
+            p = Pin(pin, mode=Pin.OUT)
+            p(True)
+            p.hold(True)
+
+        if state is True:
+            p = Pin(pin)
+            p.hold(False)
+
 
 def init_rtc():
     from machine import RTC
@@ -44,7 +62,7 @@ def init_rtc():
                 _logger.error('RTC setup failed. Cause: %s.', e)
                 break
 
-            mk_on_boot_fn('rtc_set')(value=1)
+            mk_on_boot_fn(CK_RTC_SET)(value=1)
             _logger.info('RTC Time set from NTP')
             time_set = True
             radio.deinit()
@@ -54,21 +72,46 @@ def init_rtc():
             _logger.error(msg)
             raise Exception(msg)
 
-    correct_time = True
+    correct_time = False
     yy, _, _, _, _, _, _, _ = ds3231.get_time()
-    if yy < 2019:
-        correct_time = False
+    if yy >= 2019:
+        correct_time = True
 
-    if not mk_on_boot_fn('rtc_set', default=False)():
+    if not mk_on_boot_fn(CK_RTC_SET, default=False)():
         _setup_rtc()
 
-    if mk_on_boot_fn('rtc_set', default=False)() and not correct_time:
+    if mk_on_boot_fn(CK_RTC_SET, default=False)() and not correct_time:
         _logger.error('RTC should have been already set but it is not. Something is wrong! System will try to fix it if possible...')
         _setup_rtc()
         
-    if not mk_on_boot_fn('rtc_set', default=False)():
+    if not mk_on_boot_fn(CK_RTC_SET, default=False)():
         _logger.error(msg)
         raise Exception(msg)
 
     tt = ds3231.get_time(set_rtc = True)
     _logger.info('Time is: %s', format_time(tt))
+    
+    first_boot_date = mk_on_boot_fn(CK_FIRST_BOOT_DATE, default=None)()
+    if first_boot_date is None:
+        first_boot_date = format_date(tt)
+        mk_on_boot_fn(CK_FIRST_BOOT_DATE)(value=first_boot_date)
+
+    _logger.info('First boot date: %s', first_boot_date)
+    last_boot_date = mk_on_boot_fn(CK_LAST_BOOT_DATE, default=None)()
+    if last_boot_date is None:
+        last_boot_date = format_date(tt)
+        mk_on_boot_fn(CK_LAST_BOOT_DATE)(value=first_boot_date)
+
+def disable_radios():
+    from src.comm import NBT
+    with TimedStep('LTE deinit', logger=_logger):
+        lte = network.LTE()
+        lte.deinit()
+
+    with TimedStep('WLAN deinit', logger=_logger):
+        wlan = network.WLAN()
+        wlan.deinit()
+
+    with TimedStep('NB-IoT deinit', logger=_logger):
+        nb = NBT()
+        nb.deinit()

@@ -10,16 +10,20 @@ import sys
 import _thread
 import utime
 from src.timeutil import format_date, format_time
+from src.globals import CK_DAY_NR
+from src.pycom_util import mk_on_boot_fn
 
-CRITICAL = 50
-ERROR    = 40
-WARNING  = 30
-INFO     = 20
-DEBUG    = 10
-NOTSET   = 0
+CRITICAL    = 50
+TRACEBACK   = 45
+ERROR       = 40
+WARNING     = 30
+INFO        = 20
+DEBUG       = 10
+NOTSET      = 0
 
 _level_dict = {
     CRITICAL: "CRIT",
+    TRACEBACK: "TRACEBACK",
     ERROR: "ERROR",
     WARNING: "WARN",
     INFO: "INFO",
@@ -33,17 +37,11 @@ class Logger:
 
     level = NOTSET
 
-    def __init__(self, name, to_file=False):
-        tt = utime.gmtime()
-        date = format_date(tt)
+    def __init__(self, name, to_file=True):
+        day_nr = mk_on_boot_fn(CK_DAY_NR, default=0)()
         self.name = name
         self.to_file = to_file
-        self.path = '/flash/log/{}-{}.txt'.format(name, date)
-
-        # if to_file:
-        #     f = open(self.path, 'a')
-        #     f.write('\nLogger:{} started at {}\n'.format(name, format_time(tt)))
-        #     f.close()
+        self.path = '/flash/logs/{}.txt'.format(day_nr)
     
     def _level_str(self, level):
         l = _level_dict.get(level)
@@ -59,19 +57,19 @@ class Logger:
 
     def log(self, level, msg, *args):
         if level >= (self.level or _level):
-            # if self.to_file: f = open(self.path, 'a')
+            if self.to_file: f = open(self.path, 'a')
             _stream.write("%s:%s:" % (self._level_str(level), self.name))
-            # if self.to_file: f.write("%s:%s:" % (self._level_str(level), self.name))
+            if self.to_file: f.write("%s:%s:" % (self._level_str(level), self.name))
             if not args:
                 print(msg, file=_stream)
-                # if self.to_file: f.write(msg)
+                if self.to_file: f.write(msg)
             else:
                 print(msg % args, file=_stream)
-                # if self.to_file: f.write(msg % args)
+                if self.to_file: f.write(msg % args)
             
-            # if self.to_file: 
-            #     f.write('\n')
-            #     f.close()
+            if self.to_file: 
+                f.write('\n')
+                f.close()
 
     def debug(self, msg, *args):
         self.log(DEBUG, msg, *args)
@@ -84,6 +82,16 @@ class Logger:
 
     def error(self, msg, *args):
         self.log(ERROR, msg, *args)
+
+    def traceback(self, e):
+        import uio as io
+        from sys import print_exception
+        buff = io.BytesIO()
+        print_exception(e, buff)
+
+        traceback = buff.getvalue().decode().split('\n')
+        for line in traceback:
+            self.log(TRACEBACK, line)
 
     def critical(self, msg, *args):
         self.log(CRITICAL, msg, *args)

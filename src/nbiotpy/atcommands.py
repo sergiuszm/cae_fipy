@@ -2,7 +2,7 @@ PREFIX = "AT+"
 POSTFIX = "\r\n"
 
 RADIO_ON = "CFUN=1"
-RADIO_OFF = "c"
+RADIO_OFF = "CFUN=0"
 REBOOT = "NRB"
 GPRS = "CGATT?"
 CGAC = "CGACT={}"

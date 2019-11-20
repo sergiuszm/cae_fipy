@@ -1,7 +1,7 @@
 import src.logging as logging
 import os
 
-_logger = logging.getLogger("fileutil")
+_logger = logging.getLogger("fileutil", to_file=False)
 #_logger.setLevel(logging.DEBUG)
 
 def isfile(fpath):
@@ -75,6 +75,7 @@ def rm_recursive(path, wdt=None):
     except OSError as e:
         if "No such file" in str(e):
             _logger.warning("Does not exist %s", path)
+        _logger.traceback(e)
 
 def copy_file(src_path, dest_path, block_size=512, wdt=None):
     buf = bytearray(block_size)

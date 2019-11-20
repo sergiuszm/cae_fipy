@@ -11,13 +11,14 @@
 import usocket as socket
 import ustruct as struct
 from ubinascii import hexlify
+from src.globals import *
 
 class MQTTException(Exception):
     pass
 
 class MQTTClient:
 
-    def __init__(self, client_id, server, port=0, user=None, password=None, keepalive=0,
+    def __init__(self, client_id, server, port=0, user=CK_MQTT_USER, password=CK_MQTT_PASSWD, keepalive=0,
                  ssl=False, ssl_params={}):
         if port == 0:
             port = 8883 if ssl else 1883

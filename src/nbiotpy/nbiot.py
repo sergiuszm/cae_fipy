@@ -48,6 +48,7 @@ class NbIoT:
 
     def disconnect(self):
         self.is_attached = False
+        self.__radio_off()
         self.__close_socket()
 
     def reboot(self):

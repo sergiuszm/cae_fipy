@@ -5,6 +5,12 @@ import src.sdcard as sdcard
 import src.sdcard_wrapper as sdcard_wrapper
 from machine import SPI
 import _thread
+from src.globals import CK_DAY_NR
+import src.fileutil as fileutil
+from src.timeutil import TimedStep
+import src.logging as logging
+
+_logger = logging.getLogger("storage", to_file=False)
 
 class uSD:
 
@@ -27,6 +33,21 @@ class uSD:
             f = open('/sd/{}'.format(file_name), 'a')
             f.write(content)
             f.close()
+
+    def move_logs(self):
+        day_nr = pycom_util.mk_on_boot_fn(CK_DAY_NR, default=0)()
+        if fileutil.isdir('/sd/logs') is False:
+            os.mkdir('/sd/logs')
+
+        source = '/flash/logs/{}.txt'.format(day_nr)   
+        if fileutil.isfile('/flash/logs/{}.txt'.format(day_nr)) is False:
+            return
+
+        destination = '/sd/logs/{}.txt'.format(day_nr)
+
+        with TimedStep('Moving log file', logger=_logger):
+            fileutil.copy_file(source, destination)
+            os.remove(source)
 
     def sdcard_example():
         import _thread
