@@ -5,11 +5,10 @@ import time
 import ubinascii
 from src.nbiotpy import NbIoT
 from src.timeutil import TimedStep
+from src.exceptions import TimeoutError
 
 _logger = logging.getLogger("comm")
 
-class TimeoutError(Exception):
-    pass
 
 class NBT:
     def __init__(self, mosfet='P8', pins=('P3', 'P16'), debug=False):

@@ -19,6 +19,11 @@ def boot():
         from os import mkdir
         mkdir('/flash/logs')
 
+    from machine import reset_cause, WDT_RESET
+    if WDT_RESET == reset_cause():
+        _logger.info('WDT reset happened!')
+        deinit_and_deepsleep()
+
     _logger.info('Booting')
 
     from src.pycom_util import mk_on_boot_fn
@@ -115,16 +120,13 @@ def deinit_and_deepsleep(sleep_for=CK_SLEEP_FOR):
     from time import sleep
     from machine import deepsleep
 
+    _logger.info('Mosfet off')
     mosfet_sensors(False)
     disable_radios()
     _logger.info('Going into deepsleep for %d s ...', sleep_for)
     deepsleep(sleep_for * 1000)
 
 try:
-    from machine import reset_cause, WDT_RESET, reset
-    if WDT_RESET == reset_cause():
-        _logger.info('WDT reset happened!')
-        deinit_and_deepsleep()
     boot()
     deinit_and_deepsleep()
 except Exception as e:

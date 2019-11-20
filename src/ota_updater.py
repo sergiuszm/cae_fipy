@@ -89,7 +89,7 @@ class OTAUpdater:
             version = f.read()
             f.close()
         
-        if version > CK_SYSTEM_VERSION:
+        if float(version) > float(CK_SYSTEM_VERSION):
             return version
 
         return CK_SYSTEM_VERSION

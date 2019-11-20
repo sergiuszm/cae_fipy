@@ -17,6 +17,7 @@ import src.fileutil as fileutil
 from src.timeutil import format_date, format_time
 from os import mkdir
 from src.ota_updater import OTAUpdater
+from src.exceptions import TimeoutError
 
 _logger = logging.getLogger("main")
 
@@ -38,17 +39,21 @@ def main():
 
         from src.sensors import read_temp
         _logger.info('Read temperature')
-        temps = read_temp()
-        sd = uSD()
-        if fileutil.isdir('/sd/data') is False:
-            mkdir('/sd/data')
+        try:
+            temps = read_temp()
+            sd = uSD()
+            if fileutil.isdir('/sd/data') is False:
+                mkdir('/sd/data')
 
-        data = '{};{}\n'.format(format_time(tt), temps)
-        sd.write('data/temp-{}.txt'.format(date), data)
-        sd.deinit()
-
-        _logger.info('Mosfet off')
-        # mosfet_sensors(False)
+            data = '{};{}\n'.format(format_time(tt), temps)
+            sd.write('data/temp-{}.txt'.format(date), data)
+            sd.deinit()
+        except TimeoutError as e:
+            data = None
+            _logger.error('No temperature readings')
+        except Exception as e:
+            data = None
+            _logger.traceback(e)
 
         boot_nr = mk_on_boot_fn(CK_BOOT_NR, default=0)()
         if boot_nr % CK_SEND_DATA_EVERY == 0:
@@ -60,7 +65,9 @@ def main():
             signal_data = '{};{};{}'.format(format_time(tt), 'LTE', lte._sql)
             sender = DataSender()
             sender.send_msg(CK_MQTT_SQ, signal_data)
-            sender.send_msg(CK_MQTT_TEMP, data)
+
+            if data is not None:
+                sender.send_msg(CK_MQTT_TEMP, data)
 
             version_data = '{};{}'.format(format_time(tt), OTAUpdater.get_version('/flash/src'))
             sender.send_msg(CK_MQTT_SYS_VER, version_data)

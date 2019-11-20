@@ -3,11 +3,10 @@ import src.onewire as onewire
 from machine import Pin
 import time
 import ubinascii
+from machine import Timer
+from src.exceptions import TimeoutError
 
 _logger = logging.getLogger("sensors")
-
-def read_sensors():
-    pass
 
 def read_temp():
     # external: 284ec84a070000e5
@@ -22,6 +21,8 @@ def read_temp():
     temp = ""
     _logger.info("Found %d x ds18b20", len(sensors))
     time.sleep_ms(100)
+    tschrono = Timer.Chrono()
+    tschrono.start()
     for sensor in sensors:
         t = onewire.DS18X20(ow)
         t_reading = None
@@ -33,7 +34,11 @@ def read_temp():
                 t_reading = False
             time.sleep_ms(5)
 
+            if tschrono.read_ms() > 15 * 1000: 
+                raise TimeoutError("Timeout during reading ds18b20")
+
         temp += "{} ".format(t_reading)
+        tschrono.reset()
 
     _logger.info("TEMPS: {}".format(temp))
 

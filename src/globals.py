@@ -4,7 +4,7 @@ CK_DAY_NR = 'day_nr'
 CK_LAST_BOOT_DATE = 'last_boot_day'
 CK_FIRST_BOOT_DATE = 'first_boot_day'
 CK_CHANGE_DAY_AFTER_BOOTS = 72
-CK_BOOT_UPDATE_NR = 96          #check for update after every X boots
+CK_BOOT_UPDATE_NR = 72          #check for update after every X boots
 CK_SLEEP_FOR = 1#5*60             #sleep for X seconds
 CK_SLEEP_AFTER = 180             #go to sleep (no matter what) after X seconds
 CK_SEND_DATA_EVERY = 100          #send data after every X boots
@@ -23,4 +23,4 @@ CK_MQTT_TEMP = 'temperature'
 CK_MQTT_SQ = 'signal_quality'
 CK_MQTT_SYS_VER = 'system_version'
 
-CK_SYSTEM_VERSION = '0.6'
+CK_SYSTEM_VERSION = '0.7'
