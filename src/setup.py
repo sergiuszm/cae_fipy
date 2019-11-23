@@ -6,6 +6,12 @@ from src.timeutil import TimedStep
 
 _logger = logging.getLogger("setup")
 
+def hardware_id():
+    import ubinascii
+    import machine
+
+    return ubinascii.hexlify(machine.unique_id()).decode("ascii")
+
 def init_hw():
     _logger.info('HW setup started')
     init_rtc()

@@ -10,6 +10,7 @@ from src.globals import CK_SYSTEM_VERSION, CK_UPDATE_AVAILABLE, CK_WDT_TIMEOUT
 from src.pycom_util import mk_on_boot_fn
 import src.fileutil as fileutil
 from machine import WDT
+from src.timeutil import TimedStep
 
 _logger = logging.getLogger("ota_updater")
 
@@ -37,6 +38,7 @@ class OTAUpdater:
             if '.version_on_reboot' in os.listdir(self.modulepath('next')):
                 latest_version = self.get_version(self.modulepath('next'), '.version_on_reboot')
                 _logger.info('New update found: %s', latest_version)
+                self._wdt.feed()
                 _download(latest_version)
                 self._wdt.feed()
                 if '.download_complete' in os.listdir(self.modulepath('next')):
@@ -65,9 +67,8 @@ class OTAUpdater:
         current_version = self.get_version(self.modulepath(self.main_dir))
         latest_version = self.get_latest_version()
 
-        _logger.info('Checking version... ')
-        _logger.info('\tCurrent version: %s', current_version)
-        _logger.info('\tLatest version: %s', latest_version)
+        _logger.info('Current version: %s', current_version)
+        _logger.info('Latest version: %s', latest_version)
 
         return current_version, latest_version
 
@@ -95,7 +96,9 @@ class OTAUpdater:
         return CK_SYSTEM_VERSION
 
     def get_latest_version(self):
-        latest_release = self.http_client.get(self.github_repo + '/releases/latest')
+        with TimedStep('Checking latest version from repo', logger=_logger):
+            latest_release = self.http_client.get(self.github_repo + '/releases/latest')
+        
         try:
             version = latest_release.json()['tag_name']
             latest_release.close()        
@@ -109,21 +112,22 @@ class OTAUpdater:
         return version
 
     def download_all_files(self, root_url, version):
-        file_list = self.http_client.get(root_url + '?ref=refs/tags/' + version)
-        for file in file_list.json():
-            if file['type'] == 'file':
-                download_url = file['download_url']
-                download_path = self.modulepath('next/' + file['path'].replace(self.main_dir + '/', ''))
-                self.download_file(download_url.replace('refs/tags/', ''), download_path)
-            elif file['type'] == 'dir':
-                path = self.modulepath('next/' + file['path'].replace(self.main_dir + '/', ''))
-                os.mkdir(path)
-                self.download_all_files(root_url + '/' + file['name'], version)
+        with TimedStep('Downloading update', logger=_logger):
+            file_list = self.http_client.get(root_url + '?ref=refs/tags/' + version)
+            for file in file_list.json():
+                if file['type'] == 'file':
+                    download_url = file['download_url']
+                    download_path = self.modulepath('next/' + file['path'].replace(self.main_dir + '/', ''))
+                    self.download_file(download_url.replace('refs/tags/', ''), download_path)
+                elif file['type'] == 'dir':
+                    path = self.modulepath('next/' + file['path'].replace(self.main_dir + '/', ''))
+                    os.mkdir(path)
+                    self.download_all_files(root_url + '/' + file['name'], version)
 
-        file_list.close()
-        with open(self.modulepath('next/.download_complete'), 'w') as d_file:
-            d_file.write("1")
-            d_file.close()
+            file_list.close()
+            with open(self.modulepath('next/.download_complete'), 'w') as d_file:
+                d_file.write("1")
+                d_file.close()
 
     def download_file(self, url, path):
         _logger.info('\tDownloading: %s', path)

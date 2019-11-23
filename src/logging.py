@@ -55,6 +55,10 @@ class Logger:
     def isEnabledFor(self, level):
         return level >= (self.level or _level)
 
+    def update_path(self):
+        day_nr = mk_on_boot_fn(CK_DAY_NR, default=0)()
+        self.path = '/flash/logs/{}.txt'.format(day_nr)
+
     def log(self, level, msg, *args):
         if level >= (self.level or _level):
             if self.to_file: f = open(self.path, 'a')
@@ -110,6 +114,7 @@ _loggers = {}
 def getLogger(name, to_file=True):
     if name in _loggers:
         return _loggers[name]
+
     l = Logger(name, to_file=to_file)
     _loggers[name] = l
     return l

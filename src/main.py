@@ -56,6 +56,24 @@ def main():
             _logger.traceback(e)
 
         boot_nr = mk_on_boot_fn(CK_BOOT_NR, default=0)()
+        if boot_nr % CK_SEND_LOG_EVERY == 0:
+            day_nr = mk_on_boot_fn(CK_DAY_NR, default=0)()
+            day_to_send = day_nr - 1
+            if day_to_send < 0:
+                day_to_send = 0
+
+            from src.comm import LTE
+            lte = LTE()
+            lte.connect()
+
+            sd = uSD()
+            sender = DataSender()
+            sender.send_file('/sd/logs/{}.txt'.format(day_to_send))
+            sd.deinit()
+            sender.deinit()
+            lte.deinit()
+
+
         if boot_nr % CK_SEND_DATA_EVERY == 0:
             _logger.info('Sending data to backend')
             from src.comm import LTE

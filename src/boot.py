@@ -61,8 +61,10 @@ def boot():
         mosfet_sensors(False)
         day_nr += 1
         mk_on_boot_fn(CK_DAY_NR)(value=day_nr)
+        _logger.update_path()
         _logger.info('Changing boot nr to: 0 - new day')
         mk_on_boot_fn(CK_BOOT_NR)(value=0)
+        _logger.info('Going into deepsleep for %d s ...', 1)
         deinit_and_deepsleep(1)
     
     # It is time to check for updates so boot_nr is being reset to 1
