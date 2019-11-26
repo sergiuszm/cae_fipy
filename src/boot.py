@@ -7,8 +7,9 @@ server = network.Server()
 server.deinit() 
 
 import src.logging as logging
-from src.globals import CK_BOOT_NR, CK_DAY_CHANGED, CK_DAY_NR, CK_BOOT_UPDATE_NR, CK_MOVE_LOGS_WAITING_FOR, CK_SLEEP_FOR, CK_UPDATE_WAITING_FOR, CK_UPDATE_AVAILABLE, CK_SLEEP_AFTER, CK_WDT_TIMEOUT
+from src.globals import CK_OP_FREQ, CK_BOOT_NR, CK_DAY_CHANGED, CK_DAY_NR, CK_SLEEP_FOR, CK_UPDATE_AVAILABLE, CK_WDT_TIMEOUT
 from machine import WDT
+from src.timeutil import TimedStep
 
 _logger = logging.getLogger("boot")
 wdt = WDT(timeout=CK_WDT_TIMEOUT * 1000)
@@ -42,8 +43,8 @@ def boot():
     _logger.info('Free flash space: %f MB', free_space)
 
     # for testing
-    if boot_nr >= CK_BOOT_UPDATE_NR:
-        day_changed = True
+    # if boot_nr >= CK_CHANGE_DAY_AFTER_BOOTS:
+    #     day_changed = True
 
     # Saving logs to SD card if day has changed
     if day_changed:
@@ -68,31 +69,34 @@ def boot():
         deinit_and_deepsleep(1)
     
     # It is time to check for updates so boot_nr is being reset to 1
-    if boot_nr >= CK_BOOT_UPDATE_NR:
-        _logger.info('Changing boot nr to: 1')
-        boot_nr = 1
-        mk_on_boot_fn(CK_BOOT_NR)(value=boot_nr)
+    # if boot_nr % CK_OP_FREQ = CK_BOOT_UPDATE_NR:
+    #     _logger.info('Changing boot nr to: 1')
+    #     boot_nr = 1
+    #     mk_on_boot_fn(CK_BOOT_NR)(value=boot_nr)
 
     # boot_nr = 1: check for update and if there is one available prepare to download it next time
     # boot_nr = 2: if there is scheduled update then it will be downloaded and installed
-    if boot_nr < 3:
-        try:
+    try:
+        if boot_nr % CK_OP_FREQ == 1:
+            _logger.info('Checking for update')
+            connect_and_get_update()
+            deinit_and_deepsleep(1)
+        
+        if boot_nr % CK_OP_FREQ == 2:
             update_available = mk_on_boot_fn(CK_UPDATE_AVAILABLE, default=0)()
-            if boot_nr == 1:
-                _logger.info('Checking for update')
+            if update_available:
                 connect_and_get_update()
-            
-            if boot_nr == 2 and update_available:
-                connect_and_get_update()
-        except Exception as e:
-            _logger.error('Update failed. Reason %s', e)
-
+            deinit_and_deepsleep(1)
+        
+    except Exception as e:
+        _logger.error('Update failed. Reason %s', e)
         deinit_and_deepsleep(1)
 
     # Normal stage of execution
     _logger.info('Normal stage of execution')
-    from src.main import main
-    main()
+    with TimedStep('Main', logger=_logger):
+        from src.main import main
+        main()
 
 def connect_and_get_update():
     from src.comm import WLAN, LTE
@@ -118,18 +122,22 @@ def connect_and_get_update():
         selected_radio.deinit()
 
 def deinit_and_deepsleep(sleep_for=CK_SLEEP_FOR):
-    from src.setup import mosfet_sensors, disable_radios
-    from time import sleep
-    from machine import deepsleep
+    with TimedStep('Deinit for deepsleep', logger=_logger):
+        from src.setup import mosfet_sensors, disable_radios
+        from time import sleep
+        from machine import deepsleep
 
-    _logger.info('Mosfet off')
-    mosfet_sensors(False)
-    disable_radios()
+        _logger.info('Mosfet off')
+        mosfet_sensors(False)
+        disable_radios()
+    
     _logger.info('Going into deepsleep for %d s ...', sleep_for)
     deepsleep(sleep_for * 1000)
 
 try:
-    boot()
+    with TimedStep('Boot', logger=_logger):
+        boot()
+    
     deinit_and_deepsleep()
 except Exception as e:
     _logger.traceback(e)

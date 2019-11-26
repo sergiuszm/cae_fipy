@@ -66,6 +66,7 @@ def init_rtc():
                 ds3231.save_time()
             except OSError as e:
                 _logger.error('RTC setup failed. Cause: %s.', e)
+                _logger.traceback(e)
                 break
 
             mk_on_boot_fn(CK_RTC_SET)(value=1)
@@ -121,3 +122,33 @@ def disable_radios():
     with TimedStep('NB-IoT deinit', logger=_logger):
         nb = NBT()
         nb.deinit()
+
+def clean_nvs():
+    from src.pycom_util import nvs_erase
+    from src.globals import CK_BOOT_NR, CK_DAY_CHANGED, CK_DAY_NR, CK_LAST_BOOT_DATE, CK_FIRST_BOOT_DATE, CK_RTC_SET, CK_UPDATE_AVAILABLE
+
+    keys = [CK_BOOT_NR, CK_DAY_CHANGED, CK_DAY_NR, CK_LAST_BOOT_DATE, CK_FIRST_BOOT_DATE, CK_UPDATE_AVAILABLE]
+    for key in keys:
+        nvs_erase(key)
+
+def clean_fs():
+    import os
+    from src.storage import uSD
+    mosfet_sensors(True)
+
+    files = os.listdir('/flash/logs')
+    for f in files:
+        os.remove('/flash/logs/{}'.format(f))
+
+    sd = uSD()
+    files = os.listdir('/sd/logs')
+    for f in files:
+        os.remove('/sd/logs/{}'.format(f))
+
+    files = os.listdir('/sd/data')
+    for f in files:
+        os.remove('/sd/data/{}'.format(f))
+
+    sd.deinit()
+    mosfet_sensors(False)
+    

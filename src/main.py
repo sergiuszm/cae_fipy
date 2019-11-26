@@ -33,6 +33,7 @@ def main():
         last_boot_date = mk_on_boot_fn(CK_LAST_BOOT_DATE, default=None)()
         tt = utime.gmtime()
         date = format_date(tt)
+        day_nr = mk_on_boot_fn(CK_DAY_NR, default=0)()
         if last_boot_date != date:
             mk_on_boot_fn(CK_DAY_CHANGED)(value=1)
             mk_on_boot_fn(CK_LAST_BOOT_DATE)(value=date)
@@ -46,7 +47,7 @@ def main():
                 mkdir('/sd/data')
 
             data = '{};{}\n'.format(format_time(tt), temps)
-            sd.write('data/temp-{}.txt'.format(date), data)
+            sd.write('data/temp-{}.txt'.format(day_nr), data)
             sd.deinit()
         except TimeoutError as e:
             data = None
@@ -56,8 +57,7 @@ def main():
             _logger.traceback(e)
 
         boot_nr = mk_on_boot_fn(CK_BOOT_NR, default=0)()
-        if boot_nr % CK_SEND_LOG_EVERY == 0:
-            day_nr = mk_on_boot_fn(CK_DAY_NR, default=0)()
+        if boot_nr % CK_OP_FREQ == 3:
             day_to_send = day_nr - 1
             if day_to_send < 0:
                 day_to_send = 0
@@ -69,12 +69,13 @@ def main():
             sd = uSD()
             sender = DataSender()
             sender.send_file('/sd/logs/{}.txt'.format(day_to_send))
+            sender.send_file('/sd/data/temp-{}.txt'.format(day_to_send))
             sd.deinit()
             sender.deinit()
             lte.deinit()
 
 
-        if boot_nr % CK_SEND_DATA_EVERY == 0:
+        if boot_nr % CK_OP_FREQ == 4:
             _logger.info('Sending data to backend')
             from src.comm import LTE
             lte = LTE()
@@ -107,30 +108,4 @@ def main():
 
     except Exception as e:
         _logger.traceback(e)
-        # _logger.error('Execution of main() failed, reason: %s', e)
-
-    # from src.storage import uSD
-    # sd = uSD()
-    # print(sd.list_files())
-    # sd.deinit()
-    # mosfet_sensors(False)
-
-    # from src.comm import WLAN
-    # wlan = WLAN()
-    # wlan.connect()
-    
-    # if not fileutil.isdir('/flash/data'):
-    #     fileutil.mkdirs('/flash/data')
-
-    # if not fileutil.isdir('/flash/log'):
-    #     fileutil.mkdirs('/flash/log')
-
-
-    # Thread(detect_beacon).start()
-    # Thread(read_from_uart, commands).start()
-
-    # Thread(cmd.disable_networks).start()
-    # cmd.disable_networks()
-    # Thread(test_nbiot).start()
-    # Thread(sdcard_example).start()
 

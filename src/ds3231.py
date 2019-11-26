@@ -57,30 +57,12 @@ def dec2bcd(dec):
     return (tens << 4) + units
 
 class DS3231:
-    __instance = None
 
     def __init__(self, bus, pins, baudrate=400000):
-        """ Virtually private constructor. """
-        if DS3231.__instance != None:
-            return 
-        else:
-            DS3231.__instance = self
-
         self.ds3231 = I2C(bus, pins=pins, mode=I2C.MASTER, baudrate=baudrate)
         self.timebuf = bytearray(7)
         if DS3231_I2C_ADDR not in self.ds3231.scan():
             raise DS3231Exception("DS3231 not found on I2C bus at %s" % hex(DS3231_I2C_ADDR))
-
-    @staticmethod
-    def was_created():
-        """ Static access method. """
-        if DS3231.__instance == None:
-            return False
-        return True
-
-    def deinit(self):
-        self.ds3231.deinit()
-        self.__instance = None
 
     def get_time(self, set_rtc = False):
         if set_rtc:
