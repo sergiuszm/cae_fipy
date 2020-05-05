@@ -1,4 +1,3 @@
-from machine import SD
 import os
 import src.pycom_util as pycom_util
 import src.sdcard as sdcard
@@ -34,8 +33,7 @@ class uSD:
             f.write(content)
             f.close()
 
-    def move_logs(self):
-        day_nr = pycom_util.mk_on_boot_fn(CK_DAY_NR, default=0)()
+    def move_logs(self, day_nr):
         if fileutil.isdir('/sd/logs') is False:
             os.mkdir('/sd/logs')
 
@@ -54,34 +52,3 @@ class uSD:
             for f in files:
                 os.remove('/flash/logs/{}'.format(f))
 
-    # def sdcard_example():
-    #     import _thread
-    #     card = sdcard()
-    #     # pycom.rgbled(0xff00)
-    #     mount_sd_card(card)
-
-    #     import os
-    #     import time
-    #     print(os.listdir('/sd'))
-        
-    #     a_lock = _thread.allocate_lock()
-
-    #     def write_test(nr, lock):
-    #         # lock.acquire()
-    #         with lock:
-    #             f = open('/sd/{}'.format('test{}.txt'.format(nr)), 'a')
-    #             for x in range(0, 100):
-    #                 f.write('{}\n'.format(x))
-    #             f.close()
-    #         # lock.release()
-    #         print('Thread {} finished!'.format(nr))
-
-
-    #     for x in range(0, 10):
-    #         Thread(write_test, x, a_lock).start()
-
-    #     # f = open('/sd/{}'.format('test1.txt'), 'a')
-    #     # f.write('abcde')
-    #     # f.close()
-
-    #     print(os.listdir('/sd'))

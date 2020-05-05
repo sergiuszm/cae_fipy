@@ -46,8 +46,8 @@ def main():
             if fileutil.isdir('/sd/data') is False:
                 mkdir('/sd/data')
 
-            data = '{};{}\n'.format(format_time(tt), temps)
-            sd.write('data/temp-{}.txt'.format(day_nr), data)
+            data = '{};{}'.format(format_time(tt), temps)
+            sd.write('data/temp-{}.txt'.format(day_nr), '{}\n'.format(data))
             sd.deinit()
         except TimeoutError as e:
             data = None
@@ -69,11 +69,11 @@ def main():
             sd = uSD()
             sender = DataSender()
             sender.send_file('/sd/logs/{}.txt'.format(day_to_send))
+            sender.send_file('/flash/logs/{}.txt'.format(day_to_send))
             sender.send_file('/sd/data/temp-{}.txt'.format(day_to_send))
             sd.deinit()
             sender.deinit()
             lte.deinit()
-
 
         if boot_nr % CK_OP_FREQ == 4:
             _logger.info('Sending data to backend')

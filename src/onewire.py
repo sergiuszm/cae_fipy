@@ -40,7 +40,7 @@ class OneWire:
         sleep_us(480)
         i = disable_irq()
         pin(1)
-        sleep_us(60)
+        sleep_us(70)
         status = not pin()
         enable_irq(i)
         sleep_us(420)

@@ -6,9 +6,12 @@ import ubinascii
 from src.nbiotpy import NbIoT
 from src.timeutil import TimedStep
 from src.exceptions import TimeoutError
+from micropython import const
 
 _logger = logging.getLogger("comm")
-
+RADIO_LTE = const(1)
+RADIO_NBT = const(2)
+RADIO_WLAN = const(3)
 
 class NBT:
     def __init__(self, mosfet='P8', pins=('P3', 'P16'), debug=False):
@@ -17,6 +20,7 @@ class NBT:
         self._nb = None
         self._sql = None
         self.__debug = debug
+        self.type = RADIO_NBT
 
     def connect(self):
         self._mosfet.hold(False)
@@ -52,6 +56,7 @@ class LTE:
         self._lte = None
         self._sql = None
         self.connected = False
+        self.type = RADIO_LTE
 
     def connect(self):
         def send_at_cmd_pretty(cmd):
@@ -83,12 +88,16 @@ class LTE:
 
         with TimedStep('LTE provisioning', logger=_logger):
             send_at_cmd_pretty('AT+CFUN=0')
+            # lte.send_at_cmd('AT!="clearscanconfig"')
+            # lte.send_at_cmd("AT!=\"RRC::addscanfreq band=8 dl-earfcn=3740\"")
             send_at_cmd_pretty('AT+CGDCONT=1,"IP","%s"' % 'telenor.iot')
             send_at_cmd_pretty('AT+CFUN=1')
             send_at_cmd_pretty('AT+CSQ')
 
         with TimedStep("LTE attach", logger=_logger):
             self._lte.attach()
+            # self._lte.attach(apn='telenor.iot')
+
             try:
                 while True:
                     # wdt.feed()
@@ -164,6 +173,7 @@ class WLAN:
         self._ssid = None
         self._sql = None
         self._wlan = None
+        self.type = RADIO_WLAN
 
     def connect(self):
         tschrono = Timer.Chrono()

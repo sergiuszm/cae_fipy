@@ -27,7 +27,8 @@ CK_MQTT_SQ = 'signal_quality'
 CK_MQTT_SYS_VER = 'system_version'
 
 CK_TCP_SERVER = 'lmi034-1.cs.uit.no'
+# CK_TCP_SERVER = '10.128.0.182'
 CK_TCP_PORT = 31416
 CK_TCP_BUFF_SIZE = 1024
 
-CK_SYSTEM_VERSION = '0.9'
+CK_SYSTEM_VERSION = '0.96'

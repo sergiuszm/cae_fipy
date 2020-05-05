@@ -21,20 +21,23 @@ def mosfet_sensors(state):
     from machine import Pin
     from time import sleep
     mosfet = Pin('P4', mode=Pin.OUT)
-    mosfet(state)
-    mosfet.hold(True)
 
     pins = ['P3', 'P9', 'P10', 'P22', 'P21']
-    for pin in pins:
-        if state is False:
+    if state is True:
+        for pin in pins:
+            p = Pin(pin)
+            p.hold(False)
+        
+        mosfet(state)
+
+    if state is False:
+        mosfet(state)
+        for pin in pins:
             p = Pin(pin, mode=Pin.OUT)
             p(True)
             p.hold(True)
 
-        if state is True:
-            p = Pin(pin)
-            p.hold(False)
-
+    mosfet.hold(True)
 
 def init_rtc():
     from machine import RTC
@@ -152,3 +155,6 @@ def clean_fs():
     sd.deinit()
     mosfet_sensors(False)
     
+def kill_wdt():
+    from machine import WDT
+    wdt = WDT(timeout=6000*1000)

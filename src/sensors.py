@@ -30,12 +30,13 @@ def read_temp():
         t.start_conversion(rom=sensor)
         while not t_reading:
             t_reading = t.read_temp_async(rom=sensor)
+            time.sleep_ms(750)
             if t_reading == 85.0:
                 t_reading = False
-            time.sleep_ms(5)
 
             if tschrono.read_ms() > 15 * 1000: 
                 raise TimeoutError("Timeout during reading ds18b20")
+                # break
 
         temp += "{} ".format(t_reading)
         tschrono.reset()
