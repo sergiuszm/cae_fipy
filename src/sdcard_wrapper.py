@@ -1,7 +1,5 @@
-import src.logging as logging
 import src.sdcard as sdcard
 
-_logger = logging.getLogger("sdcard_wrapper")
 #_logger.setLevel(logging.DEBUG)
 
 class SdCardWrapper(sdcard.SDCard):
@@ -32,6 +30,9 @@ class SdCardWrapper(sdcard.SDCard):
     """
 
     def readblocks(self, blocknum, buf):
+        import src.logging as logging
+        _logger = logging.getLogger("sdcard_wrapper")
+        
         BLOCKSIZE = const(512)
 
         nblocks, err = divmod(len(buf), BLOCKSIZE)

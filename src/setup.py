@@ -114,17 +114,14 @@ def init_rtc():
 
 def disable_radios():
     from src.comm import NBT
-    with TimedStep('LTE deinit', logger=_logger):
-        lte = network.LTE()
-        lte.deinit()
+    lte = LTE()
+    lte.deinit()
 
-    with TimedStep('WLAN deinit', logger=_logger):
-        wlan = network.WLAN()
-        wlan.deinit()
+    wlan = WLAN()
+    wlan.deinit()
 
-    with TimedStep('NB-IoT deinit', logger=_logger):
-        nb = NBT()
-        nb.deinit()
+    nb = NBT()
+    nb.deinit()
 
 def clean_nvs():
     from src.pycom_util import nvs_erase

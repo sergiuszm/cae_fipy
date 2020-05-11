@@ -7,9 +7,6 @@
 # https://github.com/micropython/micropython-lib/blob/master/logging/setup.py
 
 import sys
-import _thread
-import utime
-from src.timeutil import format_date, format_time
 from src.globals import CK_DAY_NR
 from src.pycom_util import mk_on_boot_fn
 
@@ -31,7 +28,6 @@ _level_dict = {
 }
 
 _stream = sys.stderr
-_lock = _thread.allocate_lock()
 
 class Logger:
 

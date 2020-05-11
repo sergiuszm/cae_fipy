@@ -198,7 +198,7 @@ class NbIoT:
 
             # timeout
             if elapsed >= float(timeout):
-                break
+                raise AttachTimeout
 
             status, cgatt = self.__execute_cmd(GPRS)
 
@@ -410,3 +410,19 @@ class NbIoT:
                 last_line_found = True
 
         return status, expected_line
+
+class FakeUDPSocket:
+    def __init__(self, nb):
+        self.nb = nb._nb
+
+    def sendto(self, bytes, address):
+        return self.nb.send_to(bytes, address)
+
+    def close(self):
+        pass
+
+class NbIoTException(Exception):
+    pass
+
+class AttachTimeout(NbIoTException):
+    pass

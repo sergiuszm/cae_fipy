@@ -79,8 +79,9 @@ class SDCard:
             self.spi.init(master, baudrate=baudrate, phase=0, polarity=0)
 
     def init_card(self):
+        from machine import Pin
         # init CS pin
-        self.cs.init(self.cs.OUT, value=1)
+        self.cs.init(self.cs.OUT, value=1, pull=Pin.PULL_UP)
 
         # init SPI bus; use low data rate for initialisation
         self.init_spi(100000)
@@ -91,6 +92,7 @@ class SDCard:
 
         # CMD0: init card; should return _R1_IDLE_STATE (allow 5 attempts)
         for _ in range(5):
+            val = self.cmd(0, 0, 0x95)
             if self.cmd(0, 0, 0x95) == _R1_IDLE_STATE:
                 break
         else:

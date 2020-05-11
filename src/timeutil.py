@@ -1,13 +1,15 @@
 import time
 from machine import Timer
+from src.storage import AggregatedMetric
 
 class DummyWdt(object):
     def init(self, timeout): pass
     def feed(self): pass
 
 class TimedStep(object):
-    def __init__(self, desc="", logger=None, suppress_exception=False):
+    def __init__(self, desc="", code=None, logger=None, suppress_exception=False):
         self.desc = desc
+        self.code = code
         self.logger = logger
         self.suppress_exception = suppress_exception
         self._tschrono = Timer.Chrono()
@@ -26,7 +28,8 @@ class TimedStep(object):
                 return True
         else:
             self.logger.info("%s OK (%f s)", self.desc, elapsed / 1000.0)
-
+            if self.code is not None:
+                AggregatedMetric.write(self.code, elapsed / 1000.0)
 
 def format_time(tt):
     yy, mo, dd, hh, mm, ss, _, _ = tt

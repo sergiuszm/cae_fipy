@@ -53,30 +53,6 @@ def rmtree(directory):
             os.remove(directory + '/' + entry[0])
     os.rmdir(directory)
 
-def rm_recursive(path, wdt=None):
-    try:
-        # Try as normal file
-        os.remove(path)
-        _logger.info("Removed file %s", path)
-        return
-    except OSError:
-        pass
-
-    try:
-        # Try as directory
-        contents = os.listdir(path)
-        for c in contents:
-            if wdt: wdt.feed()
-            rm_recursive("{}/{}".format(path,c), wdt)
-            if wdt: wdt.feed()
-        os.rmdir(path)
-        _logger.info("Removed dir  %s", path)
-        return
-    except OSError as e:
-        if "No such file" in str(e):
-            _logger.warning("Does not exist %s", path)
-        _logger.traceback(e)
-
 def copy_file(src_path, dest_path, block_size=512, wdt=None):
     buf = bytearray(block_size)
     mv = memoryview(buf)
@@ -113,6 +89,21 @@ def copy_recursive(src_path, dest_path, block_size=512, wdt=None):
             src_child = "%s/%s" % (src_path, child)
             dest_child = "%s/%s" % (dest_path, child)
             copy_recursive(src_child, dest_child, block_size, wdt=wdt)
+
+def remove_file(file_path):
+    from os import listdir, remove
+    from src.timeutil import TimedStep
+
+    with TimedStep('Removing file: %s'.format(file_path), logger=_logger):
+        if isfile(file_path) is False:
+            _logger.info('File {} doesn\'t exist!'.format(file_path))
+            return
+            
+        remove(file_path)
+
+def remove_files(file_paths):
+    for file_path in file_paths:
+        remove_file(file_path)
 
 STAT_SIZE_INDEX = const(6)
 

@@ -3,16 +3,13 @@
 import time
 import utime
 from machine import UART, Pin, deepsleep
-from src.commands import Commands
-from src.thread import Thread
 import pycom
-from src.nbiotpy import NbIoT
 from src.setup import mosfet_sensors, init_hw, disable_radios
 import src.logging as logging
 from src.globals import *
 from src.netutil import DataSender
 from src.pycom_util import mk_on_boot_fn
-from src.storage import uSD
+from src.storage import uSD, AggregatedMetric, Flash
 import src.fileutil as fileutil
 from src.timeutil import format_date, format_time
 from os import mkdir
@@ -34,7 +31,20 @@ def main():
         tt = utime.gmtime()
         date = format_date(tt)
         day_nr = mk_on_boot_fn(CK_DAY_NR, default=0)()
-        if last_boot_date != date:
+        boot_nr = mk_on_boot_fn(CK_BOOT_NR, default=0)()
+
+        # from src.comm import NBT
+        
+        # sd = uSD()
+        # time.sleep(1)
+        # sender = DataSender(NBT(debug=True))
+        # sender.send_file_udp('{}/{}_aggr.txt'.format(CK_SD_LOG_DIR, 2))
+        # sd.deinit()
+        # sender.deinit()
+        # return
+
+        #TODO: remove the second condition - it is for testing only!
+        if last_boot_date != date:# or int(boot_nr) > 110:
             mk_on_boot_fn(CK_DAY_CHANGED)(value=1)
             mk_on_boot_fn(CK_LAST_BOOT_DATE)(value=date)
 
@@ -42,70 +52,47 @@ def main():
         _logger.info('Read temperature')
         try:
             temps = read_temp()
-            sd = uSD()
-            if fileutil.isdir('/sd/data') is False:
-                mkdir('/sd/data')
+            if fileutil.isdir(CK_FLASH_DATA_DIR) is False:
+                mkdir(CK_FLASH_DATA_DIR)
 
-            data = '{};{}'.format(format_time(tt), temps)
-            sd.write('data/temp-{}.txt'.format(day_nr), '{}\n'.format(data))
-            sd.deinit()
+            data = '{}|{}'.format(format_time(tt), temps)
+            Flash.write('{}/temp-{}.txt'.format(CK_FLASH_DATA_DIR, day_nr), data)
         except TimeoutError as e:
             data = None
             _logger.error('No temperature readings')
         except Exception as e:
             data = None
+            AggregatedMetric.write(TRACEBACK, 1)
             _logger.traceback(e)
 
-        boot_nr = mk_on_boot_fn(CK_BOOT_NR, default=0)()
+        
         if boot_nr % CK_OP_FREQ == 3:
             day_to_send = day_nr - 1
             if day_to_send < 0:
                 day_to_send = 0
 
-            from src.comm import LTE
-            lte = LTE()
-            lte.connect()
+            if RADIO_LTE in ALLOWED_COM_RADIO:
+                from src.comm import LTE
 
-            sd = uSD()
-            sender = DataSender()
-            sender.send_file('/sd/logs/{}.txt'.format(day_to_send))
-            sender.send_file('/flash/logs/{}.txt'.format(day_to_send))
-            sender.send_file('/sd/data/temp-{}.txt'.format(day_to_send))
-            sd.deinit()
-            sender.deinit()
-            lte.deinit()
+                sd = uSD()
+                sender = DataSender(LTE())
+                sender.send_file_tcp('{}/{}.txt'.format(CK_SD_LOG_DIR, day_to_send))
+                sender.send_file_tcp('{}/{}_aggr.txt'.format(CK_SD_LOG_DIR, day_to_send))
+                sender.send_file_tcp('{}/temp-{}.txt'.format(CK_SD_DATA_DIR, day_to_send))
+                sd.deinit()
+                sender.deinit()
 
-        if boot_nr % CK_OP_FREQ == 4:
-            _logger.info('Sending data to backend')
-            from src.comm import LTE
-            lte = LTE()
-            lte.connect()
-
-            signal_data = '{};{};{}'.format(format_time(tt), 'LTE', lte._sql)
-            sender = DataSender()
-            sender.send_msg(CK_MQTT_SQ, signal_data)
-
-            if data is not None:
-                sender.send_msg(CK_MQTT_TEMP, data)
-
-            version_data = '{};{}'.format(format_time(tt), OTAUpdater.get_version('/flash/src'))
-            sender.send_msg(CK_MQTT_SYS_VER, version_data)
-            sender.deinit()
-            lte.deinit()
-
-        # from src.comm import LTE
-        # lte = LTE()
-        # lte.connect()
-        # lte.deinit()
-
-
-        # if boot_nr % 2 == 0:
-        # from src.comm import NBT
-        # nbiot = NBT(debug=True)
-        # nbiot.connect()
-        # nbiot.get_id()
-        # nbiot.deinit()
+            if RADIO_NBT in ALLOWED_COM_RADIO:
+                from src.comm import NBT
+                
+                sd = uSD()
+                sender = DataSender(NBT(debug=True))
+                sender.send_file_udp('{}/{}_aggr.txt'.format(CK_SD_LOG_DIR, day_to_send))
+                sd.deinit()
+                sender.deinit()
 
     except Exception as e:
+        pycom.rgbled(0x007F00)
         _logger.traceback(e)
+        AggregatedMetric.write(TRACEBACK, 1)
 

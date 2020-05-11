@@ -6,15 +6,15 @@ import ubinascii
 from src.nbiotpy import NbIoT
 from src.timeutil import TimedStep
 from src.exceptions import TimeoutError
-from micropython import const
+from src.globals import NBIOT_APN, NBIOT_ATT, NBIOT_OP, NBIOT_PDP, NBIOT_RADIO_ON, NBIOT_RESET, NBIOT_SOCK, NBIOT_SQ, NBIOT_SQ_T, NBIOT_DISC, NBIOT_DEINIT
+from src.globals import LTE_ATTACH, LTE_CONNECT, LTE_DEINIT, LTE_DETACH, LTE_DISC, LTE_NET_INIT, LTE_OBJ_INIT, LTE_PROV, LTE_RESET, LTE_SQ, LTE_SQ_T
+from src.globals import RADIO_LTE, RADIO_NBT, RADIO_WLAN
 
 _logger = logging.getLogger("comm")
-RADIO_LTE = const(1)
-RADIO_NBT = const(2)
-RADIO_WLAN = const(3)
 
 class NBT:
     def __init__(self, mosfet='P8', pins=('P3', 'P16'), debug=False):
+        self.connected = False
         self._mosfet = Pin(mosfet, mode=Pin.OUT)
         self._pins = pins
         self._nb = None
@@ -26,21 +26,43 @@ class NBT:
         self._mosfet.hold(False)
         self._mosfet(True)
         self._nb = NbIoT(pins=self._pins, debug=self.__debug)
-        with TimedStep("NBIoT attach", logger=_logger):
-            self._nb.connect()
-        self._sql = self._nb.get_signal_strength()
-        _logger.info("NBIoT attached: %s. Signal quality %s", self._nb.is_attached, self._sql)
+
+        with TimedStep("NBIoT reboot", code=NBIOT_RESET, logger=_logger):
+            self._nb.reboot()
+        with TimedStep("NBIoT radio on", code=NBIOT_RADIO_ON, logger=_logger):
+            self._nb.__radio_on()
+        with TimedStep("NBIoT set APN", code=NBIOT_APN, logger=_logger):
+            self._nb.__set_apn()
+        with TimedStep("NBIoT select operator", code=NBIOT_OP, logger=_logger):
+            self._nb.__select_operator()
+        with TimedStep("NBIoT attach", code=NBIOT_ATT, logger=_logger):
+            self._nb.__check_if_attached()
+        
+        with TimedStep("NBIoT activate PDP", code=NBIOT_PDP, logger=_logger):
+            self._nb.__activate_pdp_context()
+        with TimedStep("NBIoT create socket", code=NBIOT_SOCK, logger=_logger):
+            self._nb.__create_socket()
+
+        with TimedStep("NBIoT SQ", code=NBIOT_SQ_T, logger=_logger):
+            self._sql = self._nb.get_signal_strength()
+
+        from src.storage import AggregatedMetric
+        AggregatedMetric.write(NBIOT_SQ, self._sql)
+        _logger.info("NBIoT attached. Signal quality %s", self._sql)
+        self.connect = True
 
     def deinit(self):
         if self._nb is not None:
-            with TimedStep("NBIoT disconnect", logger=_logger):
+            with TimedStep("NBIoT disconnect", code=NBIOT_DISC, logger=_logger):
                 self._nb.disconnect()
         
-        del self._nb
-        self._nb = None
-        self._sql = None
-        self._mosfet(False)
-        self._mosfet.hold(True)
+        with TimedStep("NBIoT deinit", code=NBIOT_DEINIT, logger=_logger):
+            del self._nb
+            self.connect = False
+            self._nb = None
+            self._sql = None
+            self._mosfet(False)
+            self._mosfet.hold(True)
 
     def get_id(self):
         if self._nb is None:
@@ -74,19 +96,19 @@ class LTE:
         tschrono = Timer.Chrono()
         tschrono.start()
 
-        with TimedStep("LTE object init", logger=_logger):
+        with TimedStep("LTE object init", code=LTE_OBJ_INIT, logger=_logger):
             # network.LTE.reconnect_uart()
             self._lte = network.LTE()
             # self._lte.reconnect_uart()
 
-        with TimedStep("LTE reset", logger=_logger):
+        with TimedStep("LTE reset", code=LTE_RESET, logger=_logger):
             self._lte.reset()
         #     self._lte.send_at_cmd('AT^RESET')
 
-        with TimedStep("LTE network init", logger=_logger):
+        with TimedStep("LTE network init", code=LTE_NET_INIT, logger=_logger):
             self._lte.init()
 
-        with TimedStep('LTE provisioning', logger=_logger):
+        with TimedStep('LTE provisioning', code=LTE_PROV, logger=_logger):
             send_at_cmd_pretty('AT+CFUN=0')
             # lte.send_at_cmd('AT!="clearscanconfig"')
             # lte.send_at_cmd("AT!=\"RRC::addscanfreq band=8 dl-earfcn=3740\"")
@@ -94,7 +116,7 @@ class LTE:
             send_at_cmd_pretty('AT+CFUN=1')
             send_at_cmd_pretty('AT+CSQ')
 
-        with TimedStep("LTE attach", logger=_logger):
+        with TimedStep("LTE attach", code=LTE_ATTACH, logger=_logger):
             self._lte.attach()
             # self._lte.attach(apn='telenor.iot')
 
@@ -112,11 +134,13 @@ class LTE:
                 try:
                     self._sql = self.get_signal_strength()['rssi_dbm']
                     _logger.info("LTE attached: %s. Signal quality %s", self._lte.isattached(), self._sql)
+                    from src.storage import AggregatedMetric
+                    AggregatedMetric.write(LTE_SQ, self._sql)
                 except Exception as e:
                     _logger.exception("While trying to measure and log signal strength: {}".format(e))
 
         tschrono.reset()
-        with TimedStep("LTE connect", logger=_logger):
+        with TimedStep("LTE connect", code=LTE_CONNECT, logger=_logger):
             self._lte.connect()
             while True:
                 # wdt.feed()
@@ -138,15 +162,15 @@ class LTE:
 
         try:
             if self._lte.isconnected():
-                with TimedStep("LTE disconnect", logger=_logger):
+                with TimedStep("LTE disconnect", code=LTE_DISC, logger=_logger):
                     self._lte.disconnect()
 
             if self._lte.isattached():
-                with TimedStep("LTE detach", logger=_logger):
+                with TimedStep("LTE detach", code=LTE_DETACH, logger=_logger):
                     self._lte.detach()
 
         finally:
-            with TimedStep("LTE deinit", logger=_logger):
+            with TimedStep("LTE deinit", code=LTE_DEINIT, logger=_logger):
                 self._lte.deinit()
 
         self._lte = None
@@ -174,6 +198,7 @@ class WLAN:
         self._sql = None
         self._wlan = None
         self.type = RADIO_WLAN
+        self.connected = False
 
     def connect(self):
         tschrono = Timer.Chrono()
@@ -194,12 +219,14 @@ class WLAN:
                             raise TimeoutError("Timeout during WiFi connect", logger=_logger)
                         time.sleep_ms(250)
 
+                self.connected = True
                 return
         
         raise Exception('Network not found')
 
 
     def deinit(self):
+        self.connected = False
         self._ssid = None
         self._sql = None
 
